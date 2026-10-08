@@ -1,4 +1,4 @@
-# Sprint 2 — Demo 2: Build and Deploy a Containerised Service 
+# Demo 2: Build and Deploy a Containerised Service 
 ## Purpose
 
 Use the supplied Python application to build a container image, push it to Floci's local registry, deploy it through ECS and verify that it responds.
