@@ -1,23 +1,21 @@
-# Demo 2: Build and Deploy a Containerised Service 
+# Demo 2: Build and Deploy a Containerized Service
 ## Purpose
 
 Use the supplied Python application to build a container image, push it to Floci's local registry, deploy it through ECS and verify that it responds.
 
-**Learning outcome:** Build and push a container image to a local registry, deploy it on Floci's ECS, and verify that it responds.
+**Learning outcome:** Build, publish and deploy a container image on ECS.
 
 GitHub Actions can run the tests. Image publishing and deployment use local commands.
 
 ## Problem statement
 
 Use the supplied Python application to build a container image, push it to Floci’s local 
-registry and deploy it through ECS using the execution role created in Demo 1.​
+registry and deploy it through ECS using the execution role created in Demo 1.
 
-Run the application tests locally, push the source code to GitHub and confirm that GitHub 
-Actions tests pass. Use local commands to build the image, tag it with the Git commit SHA, 
-publish it and deploy the ECS service.​
+Push the source code to a new GitHub repository and confirm that the GitHub Actions tests pass. Use local commands to build the image, tag it with the Git commit SHA, publish it and deploy the ECS service.
 
 Verify that the task is healthy, /health returns the expected version and /chat returns a 
-reply. Check the application logs and saved deployment evidence to confirm success.​
+reply. Check the application logs and saved deployment evidence to confirm success.
 
 ## Before starting
 
@@ -25,7 +23,7 @@ reply. Check the application logs and saved deployment evidence to confirm succe
 
 - Use **Windows PowerShell** in the supplied Demo 2 project root, containing `app.py`, `Dockerfile`, `requirements.txt` and `scripts`.
 - Docker Desktop must be running in **Linux containers** mode.
-- Python 3.12, AWS CLI v2 and Git must be installed.
+- Python 3.12, AWS CLI v2 and Git must be installed, and you need a GitHub account.
 - Demo 1 must be completed on this Windows machine, with its Floci `data` folder retained.
 - Profile `floci` must use local credentials `test` / `test`, region `us-east-1`, output `json`.
 - Internet access is needed for dependency installation and image downloads.
@@ -36,25 +34,63 @@ Keep the same PowerShell window open throughout. Folder variables such as `$Demo
 
 ## Supplied files
 
-| File / folder | What the code does |
-|---|---|
-| `app.py` | Provides `/health` to check the application and `/chat` to return a simple reply. |
-| `requirements.txt` | Lists the Python packages and versions required by the application. |
-| `Dockerfile` | Builds a container image containing the application and its dependencies, then runs it as a non-root user. |
-| `docker-compose.yml` | Runs Floci 2.2.0 with the settings needed for a local registry and real ECS containers. |
-| `.github/workflows/ci.yml` | Runs the application tests automatically when code is pushed to `main`. |
-| `ecs/task-definition.template.json` | Defines how ECS runs the container: image, execution role, CPU, memory, port, health check and logs. |
-| `scripts/__init__.py` | Makes the scripts folder a Python package so commands such as `python -m scripts.publish` work. |
-| `scripts/local_cloud.py` | Provides shared helpers for calling local Floci APIs, retrieving the execution role and saving generated files. |
-| `scripts/prepare_local.py` | Prepares the image repository, log group, ECS cluster and placement resources; saves their details locally. |
-| `scripts/publish.py` | Builds the image, signs in to the registry and pushes it with the Git commit SHA as its tag. |
-| `scripts/deploy.py` | Deploys the image through ECS, checks task health and application responses, and saves evidence. |
-| `tests/` | Checks application responses, invalid inputs and selected deployment configuration rules. |
-| `.gitignore` | Prevents local data, virtual environments, credentials and generated files from being committed. |
-| `.dockerignore` — if supplied | Excludes unnecessary local files from the Docker build context. |
-| `README.md` | Gives the commands, their purpose and the expected results for completing the demo. |
+### Application
 
-`/chat` returns a fixed reply. No external model or API key is needed.
+| File | Role |
+|---|---|
+| `app.py` | The app. `/health` reports status and version; `/chat` returns a fixed reply. |
+| `requirements.txt` | Python packages and versions the app needs. |
+| `tests/` | Checks responses, invalid inputs and deployment config rules (8 tests run on GitHub). |
+
+### Packaging
+
+| File | Role |
+|---|---|
+| `Dockerfile` | Recipe to build the container image; runs the app as a non-root user. |
+| `.dockerignore` | Leaves unneeded files out of the build. |
+
+### Local cloud (Floci)
+
+| File | Role |
+|---|---|
+| `docker-compose.yml` | Starts Floci 2.2.0 with a local registry and real ECS containers. |
+| `ecs/task-definition.template.json` | Tells ECS what to run: image, role, CPU, memory, port, health check, logs. |
+
+### Scripts
+
+| File | Role |
+|---|---|
+| `scripts/__init__.py` | Makes `scripts` a Python package so `python -m scripts.publish` works. |
+| `scripts/local_cloud.py` | Shared helpers: call Floci, get the execution role, save generated files. |
+| `scripts/prepare_local.py` | Creates the repository, log group, ECS cluster and subnet; saves `local-config.json`. |
+| `scripts/publish.py` | Builds the image and pushes it to the registry tagged with the Git commit SHA. |
+| `scripts/deploy.py` | Deploys via ECS, checks health, calls `/health` and `/chat`, saves evidence. |
+
+### Automation and safety
+
+| File | Role |
+|---|---|
+| `.github/workflows/ci.yml` | Runs the tests on GitHub when code is pushed to `main` (tests only, no deploy). |
+| `.gitignore` | Keeps Floci data, `.venv`, credentials, `local-config.json` and `.generated` out of Git. |
+
+### Created while running
+
+| File | Role |
+|---|---|
+| `local-config.json` | Made by `prepare_local.py`; holds role ARN, repository URI and subnet ID. |
+| `.generated/deployment-evidence.json` | Made by `deploy.py`; proof the deployment succeeded. |
+| `.venv/` | Python virtual environment with the app's packages. |
+
+### Reused from Demo 1
+
+| File | Role |
+|---|---|
+| `data/` | Floci's saved state, including the IAM execution role. Used in place, never copied. |
+| `execution-role-arn.txt` | A note of the role's ARN; not the role itself. |
+
+## How they fit together
+
+`prepare_local.py` sets up the infrastructure → `publish.py` builds (via `Dockerfile`) and pushes the image → `deploy.py` runs it through ECS using `task-definition.template.json`. `ci.yml` and `tests/` check quality on GitHub.
 
 ## 1. Check the tools
 
@@ -70,6 +106,19 @@ git --version
 
 **Expected:** Docker client/server information, Compose version, Python 3.12, AWS CLI v2 and Git version. If Docker server information is missing, start Docker Desktop. If Python 3.12 is missing, resolve the installation before continuing.
 
+### Create the Python environment
+
+In the Demo 2 project root:
+
+```powershell
+py -3.12 -m venv .venv
+.\.venv\Scripts\python.exe -m pip install -r requirements.txt
+```
+
+**Why:** Creates the virtual environment that the scripts in later steps use, and installs the packages listed in `requirements.txt`.
+
+**Expected:** The packages install without errors.
+
 ## 2. Set the folder locations and standard Compose filename
 
 In the Demo 2 root:
@@ -84,7 +133,7 @@ $Demo1Folder = 'C:\full\path\to\Demo1'
 For example, a folder under Documents could be:
 
 ```powershell
-$Demo1Folder = "$env:USERPROFILE\Documents\Course12\Sprint 2\Demo1"
+$Demo1Folder = "$env:USERPROFILE\Documents\Sprint2\Demo1"
 ```
 
 This is only an example; use the location that actually contains your Demo 1 files.
@@ -99,7 +148,7 @@ Get-ChildItem $Demo1Folder
 
 **Expected:** Demo 1's file list includes `docker-compose.yml`, `data` and the policy files.
 
-The standard filename for Demo 2 is **`docker-compose.yml`**. If the older supplied folder still has `docker-compose.example.yml`, rename it once:
+The standard filename for Demo 2 is **`docker-compose.yml`**. If your folder has `docker-compose.example.yml` instead, rename it once:
 
 ```powershell
 if (!(Test-Path '.\docker-compose.yml')) {
@@ -109,9 +158,9 @@ if (!(Test-Path '.\docker-compose.yml')) {
 
 **Why:** Standardises the filename without replacing an existing Compose file.
 
-### Use the version verified during rehearsal
+### Pin the Floci version
 
-Open Demo 2's `docker-compose.yml` in your editor. Set its existing image line to:
+Open Demo 2's `docker-compose.yml` in your editor and make sure its image line is:
 
 ```yaml
 image: floci/floci:2.2.0
@@ -126,7 +175,7 @@ FLOCI_SERVICES_ECS_PUBLISH_AWSVPC_PORTS_TO_HOST: "true"
 FLOCI_SERVICES_ECS_IMAGE_PULL_BEHAVIOR: always
 ```
 
-**Why:** The Ubuntu rehearsal succeeded with Floci 2.2.0. Version 2.1.0 did not publish the application port or return the health status required by the deployment script. Pinning the verified version avoids silently reusing an older `latest` image. The final classroom files should already contain this version and filename.
+**Why:** Floci 2.2.0 is the version this demo is tested with. Version 2.1.0 does not publish the application port or return the health status required by the deployment script. Pinning the version avoids silently reusing an older `latest` image.
 
 ## 3. Start Floci using Demo 1's retained data
 
@@ -173,7 +222,6 @@ aws iam get-role --role-name application-execution-role --endpoint-url http://lo
 
 **Expected:** Role details and its ARN. The actual account ID is part of the ARN; do not substitute a guessed account ID.
 
-
 ## 4. Prepare the deployment targets
 
 ```powershell
@@ -195,47 +243,19 @@ Remove-Item Env:GITHUB_SHA, Env:GITHUB_ENV, Env:GITHUB_STEP_SUMMARY -ErrorAction
 
 **Expected:** Output includes `execution_role_arn`, `repository_uri` and `subnet_id`. Values are also saved automatically in **`local-config.json`** in Demo 2.
 
-**No manual saving or GitHub subnet variable is required.** The script prints `Configuration saved to local-config.json. Continue with the README's local deployment steps.` Step 8 reads the saved values automatically.
+**No manual saving or GitHub subnet variable is required.** The script prints `Configuration saved to local-config.json. Continue with the README's local deployment steps.` Steps 6 and 7 read the saved values automatically.
 
 The subnet is supplied placement infrastructure. No EC2 instance is created, and the execution role's permissions are not broadened.
 
 ## 5. Record the Git commit and verify GitHub tests
 
-### 1. Create a GitHub Repository
+### 5.1 Create a GitHub repository
 
-Sign in to GitHub and create a new repository.
+Create a new, empty repository on GitHub. Do not add a README, `.gitignore` or license file; the project already has them.
 
-Do not add another README, `.gitignore`,if these files already exist in the local project.
+### 5.2 Use an access token that can update workflows
 
----
-
-### 2. Create a Fine-Grained Personal Access Token
-
-GitHub does not accept the normal GitHub account password for Git operations over HTTPS.
-
-Use a **Personal Access Token (PAT)** as the password.
-
-1. Open **Profile picture → Settings**.
-2. Open **Developer settings**.
-3. Open **Personal access tokens → Fine-grained tokens**.
-4. Create a new token.
-5. Select the repository created for this demo.
-
-### 3. Configure Repository Permissions
-
-After selecting the repository for the token:
-
-1. Scroll to the **Repository permissions** section.
-2. Click **Add permissions**.
-3. Select **Contents**.
-4. Set **Contents** to **Read and write**.
-5. Click **Add permissions** again.
-6. Select **Workflows**.
-7. Set **Workflows** to **Read and write**.
-8. Keep **Metadata** as **Read-only**.
-9. Click **Generate token** or **Update**.
-
-Final permissions should be:
+Git over HTTPS needs a personal access token in place of your password. The project contains `.github/workflows/ci.yml`, so the token must be allowed to update workflows. For a fine-grained token limited to this repository, use:
 
 ```text
 Contents   → Read and write
@@ -245,33 +265,12 @@ Metadata   → Read-only
 
 > The token is used only for authentication. Do not add it to source code or commit it to Git.
 
----
+### 5.3 Push the project
 
-### 4. Use the Token with Git
+From the Demo 2 project root:
 
-When Git asks:
-
-```text
-Username for 'https://github.com':
-```
-
-enter your GitHub username.
-
-When Git asks:
-
-```text
-Password for 'https://<username>@github.com':
-```
-
-paste the **Personal Access Token**, not your GitHub account password.
-
----
-
-### 5. Push the Existing Service to GitHub
-
-From the project root:
-
-```bash
+```powershell
+if (!(Test-Path .git)) { git init }
 git add .
 git commit -m "<Commit Message>"
 git branch -M main
@@ -279,16 +278,13 @@ git remote add origin <repository-url>
 git push -u origin main
 ```
 
-Verify that the pushed Service source code is visible in the GitHub repository.
+Replace `<Commit Message>` and `<repository-url>` with your own values. Verify that the pushed source code is visible in the GitHub repository.
 
 > If the remote is already configured, do not run `git remote add origin` again.
 
----
-### 6. Check the Actions
+### 5.4 Check the Actions
 
-Open the repository's **Actions tab on its main page**.
-Open **Application CI**, select the latest run, then **Test application**.
-Confirm eight tests passed and the workflow is green. This workflow contains only the test job.
+Open the repository's **Actions tab on its main page**. Open **Application CI**, select the latest run, then **Test application**. Confirm eight tests passed and the workflow is green. This workflow contains only the test job.
 
 The repository Actions tab shows workflow runs. **No runner setup, repository deployment variables or secrets are required.**
 
@@ -305,7 +301,7 @@ $DemoSha
 
 **Expected:** A 40-character SHA.
 
-**Source push and image push are different:** `git push` sends source code to GitHub. Step 7 pushes a container image to Floci. GitHub test success does not deploy the service in this simplified flow.
+**Source push and image push are different:** `git push` sends source code to GitHub. Step 6 pushes a container image to Floci. GitHub test success does not deploy the service in this simplified flow.
 
 ## 6. Allow the local HTTP registry, then build and push
 
@@ -375,11 +371,10 @@ $LocalConfig = Get-Content '.\local-config.json' -Raw | ConvertFrom-Json
 $env:IMAGE_URI = "$($LocalConfig.repository_uri):$DemoSha"
 $env:FLOCI_SUBNET_ID = $LocalConfig.subnet_id
 $env:APP_BASE_URL = 'http://localhost:8080'
-$env:IMAGE_URI = "$($LocalConfig.repository_uri):$DemoSha"
 $env:FLOCI_SUBNET_ID
 ```
 
-**Why:** Reads the actual values automatically. No account ID or subnet needs to be typed. The image tag is the commit published in Step 7. Re-setting `APP_BASE_URL` here prevents a missing-address deployment error.
+**Why:** Reads the actual values automatically. No account ID or subnet needs to be typed. The image tag is the commit published in Step 6. Re-setting `APP_BASE_URL` here prevents a missing-address deployment error.
 
 **Expected:** Image URI ending in the full Git SHA and a subnet ID beginning with `subnet-`.
 
@@ -461,7 +456,7 @@ Get-Content '.\.generated\deployment-evidence.json'
 
 ## Completion checklist
 
-- Application tests passed locally and, if the GitHub stage was used, on GitHub.
+- The GitHub Actions tests passed on GitHub.
 - The full-SHA-tagged container image is visible in the registry.
 - ECS runs the intended image using Demo 1's execution role.
 - The task is healthy, and host-side `/health` identifies the expected SHA.
@@ -478,11 +473,12 @@ Successful local execution alone does not prove every AWS IAM permission is enfo
 | `floci` profile missing | Run `aws configure --profile floci`; enter `test`, `test`, `us-east-1`, `json`. If asked about optional AWS AI skills, enter `n`. |
 | Role missing | Check Step 3's data mount; retain Demo 1's original data. |
 | Floci reports 2.1.0 | Check the image line is `floci/floci:2.2.0`, then repeat Step 3's pull/up commands. |
-| `HTTP response to HTTPS client` | Check Step 7's Docker Engine registry entry and restart Docker Desktop. |
-| Missing `APP_BASE_URL` | Repeat Step 8 before retrying deployment. |
+| `HTTP response to HTTPS client` | Check Step 6's Docker Engine registry entry and restart Docker Desktop. |
+| Missing `APP_BASE_URL` | Repeat the Step 7 commands before retrying deployment. |
 | Port 8080 already allocated | Stop an earlier source application or manually started container. |
 | Deployment timeout | Check task/container status and logs below; do not repeatedly redeploy without inspecting the failure. |
 | Host health request fails | Confirm Floci 2.2.0 and host port publication below. Do not treat a running task alone as success. |
+| `git push` is rejected for workflow files | Give the access token **Workflows → Read and write**, then push again. |
 
 Check actual Docker containers:
 
@@ -525,10 +521,6 @@ docker compose --project-directory "$Demo1Folder" -f "$Demo2Folder\docker-compos
 ```
 
 **Why:** Stops Floci while retaining the bind-mounted Demo 1 data.
-
-If a runner was started during the earlier version, stop its terminal process with Ctrl+C. The final `Application CI` workflow does not use a self-hosted runner.
-
-
 
 ## References
 
