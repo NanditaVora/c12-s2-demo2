@@ -102,6 +102,14 @@ aws --version
 git --version
 ```
 
+> **Note:** `py -3.12 --version` returned `No runtime installed that matches 3.12.` Revised command used instead:
+>
+> ```powershell
+> py --version
+> ```
+>
+> **Expected:** Python 3.14 (returned `Python 3.14.8`, not 3.12 — Python 3.12 still needs to be resolved before continuing).
+
 **Why:** Checks the tools before deployment.
 
 **Expected:** Docker client/server information, Compose version, Python 3.12, AWS CLI v2 and Git version. If Docker server information is missing, start Docker Desktop. If Python 3.12 is missing, resolve the installation before continuing.
@@ -114,6 +122,13 @@ In the Demo 2 project root:
 py -3.12 -m venv .venv
 .\.venv\Scripts\python.exe -m pip install -r requirements.txt
 ```
+
+> **Note:** Python 3.12 is not installed on this machine. Continuing with the installed Python 3.14 instead; version omitted from the `py` command:
+>
+> ```powershell
+> py -m venv .venv
+> .\.venv\Scripts\python.exe -m pip install -r requirements.txt
+> ```
 
 **Why:** Creates the virtual environment that the scripts in later steps use, and installs the packages listed in `requirements.txt`.
 

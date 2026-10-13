@@ -40,7 +40,7 @@ def main():
     configuration = {"execution_role_arn": role, "repository_uri": repository["repositoryUri"], "subnet_id": subnet_id}
     (ROOT / "local-config.json").write_text(json.dumps(configuration, indent=2), encoding="utf-8")
     print(json.dumps(configuration, indent=2))
-   print("Configuration saved to local-config.json. Continue with the README's local deployment steps.")
+    print("Configuration saved to local-config.json. Continue with the README's local deployment steps.")
 
 
 if __name__ == "__main__":
